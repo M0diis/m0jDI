@@ -30,7 +30,6 @@ constructors that require dependency injection.
 Example:
 
 ```java
-
 @Singleton
 public class Service {
     public void perform() {
