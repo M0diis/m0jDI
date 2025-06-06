@@ -1,7 +1,10 @@
 package me.m0dii.m0jdi.inject;
 
 import me.m0dii.m0jdi.annotations.Inject;
+import me.m0dii.m0jdi.annotations.Injected;
+import me.m0dii.m0jdi.exception.InjectionException;
 
+import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 
 public class Injector {
@@ -11,6 +14,56 @@ public class Injector {
         this.container = container;
     }
 
+    /**
+     * Creates an instance of the specified class.
+     * <p>
+     * If a constructor in the class is annotated with {@link Inject}, it resolves dependencies
+     * for the constructor parameters using the {@link InjectorContainer} and invokes the annotated constructor.
+     * If no such constructor exists, it tries to invoke the default no-argument constructor.
+     * </p>
+     *
+     * @param clazz The class to instantiate.
+     * @param <T>   The type of the class being instantiated.
+     * @return A new instance of the specified class.
+     * @throws InjectionException If instantiation or dependency injection fails, or no suitable constructor is found.
+     */
+    @SuppressWarnings("unchecked")
+    public <T> T createInstance(Class<T> clazz) {
+        for (Constructor<?> constructor : clazz.getDeclaredConstructors()) {
+            if (constructor.isAnnotationPresent(Inject.class)) {
+                Class<?>[] parameterTypes = constructor.getParameterTypes();
+                Object[] dependencies = new Object[parameterTypes.length];
+                for (int i = 0; i < parameterTypes.length; i++) {
+                    dependencies[i] = container.resolve(parameterTypes[i]);
+                }
+
+                try {
+                    constructor.setAccessible(true);
+                    return (T) constructor.newInstance(dependencies);
+                } catch (Exception e) {
+                    throw new InjectionException("Failed to instantiate " + clazz + " with @Inject constructor");
+                }
+            }
+        }
+
+        try {
+            return clazz.getDeclaredConstructor().newInstance();
+        } catch (Exception e) {
+            throw new InjectionException("Failed to instantiate " + clazz + ". No @Inject constructor or default constructor found.");
+        }
+    }
+
+    /**
+     * Injects dependencies into the fields annotated with {@link Injected} in the specified target object.
+     * <p>
+     * The method traverses the class hierarchy of the target object. For each field annotated with
+     * {@link Injected}, it resolves the dependency from the {@link InjectorContainer} and assigns it
+     * to the field. If dependency injection fails at any point, an {@link InjectionException} is thrown.
+     * </p>
+     *
+     * @param target The object whose dependencies should be injected. If {@code null}, the method does nothing.
+     * @throws InjectionException If the dependency cannot be resolved or an error occurs during field injection.
+     */
     public void injectDependencies(Object target) {
         if (target == null) {
             return;
@@ -20,14 +73,14 @@ public class Injector {
         while (currentClass != null) {
             Field[] fields = currentClass.getDeclaredFields();
             for (Field field : fields) {
-                if (field.isAnnotationPresent(Inject.class)) {
+                if (field.isAnnotationPresent(Injected.class)) {
                     Object dependency = container.resolve(field.getType());
                     if (dependency != null) {
                         field.setAccessible(true);
                         try {
                             field.set(target, dependency);
                         } catch (IllegalAccessException e) {
-                            throw new RuntimeException("Failed to inject dependency", e);
+                            throw new InjectionException("Failed to inject dependency");
                         }
                     }
                 }

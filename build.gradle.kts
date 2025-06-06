@@ -14,6 +14,10 @@ dependencies {
     testImplementation("org.junit.jupiter:junit-jupiter")
 }
 
+tasks.jar {
+    exclude("me/m0dii/m0jdi/example/**")
+}
+
 tasks.test {
     useJUnitPlatform()
 }

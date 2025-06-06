@@ -8,7 +8,7 @@ management. It supports automatic handling of singletons and non-singleton class
 
 - **Singleton Support**: Automatically manage singleton instances using the `@Singleton` annotation.
 - **Constructor Injection**: Inject dependencies via constructors annotated with `@Inject`.
-- **Field Injection**: Inject dependencies into fields annotated with `@Inject`.
+- **Field Injection**: Inject dependencies into fields annotated with `@Injected`.
 
 ## Installation
 
