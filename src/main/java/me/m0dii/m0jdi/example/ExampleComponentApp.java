@@ -4,7 +4,6 @@ import me.m0dii.m0jdi.annotations.Component;
 import me.m0dii.m0jdi.annotations.Inject;
 import me.m0dii.m0jdi.annotations.Injected;
 import me.m0dii.m0jdi.inject.Injector;
-import me.m0dii.m0jdi.inject.InjectorContainer;
 
 import java.util.Random;
 
@@ -44,10 +43,7 @@ public class ExampleComponentApp {
     private Printer printer;
 
     public void run() {
-        InjectorContainer container = new InjectorContainer();
-        container.scanPackage("me.m0dii.m0jdi.example");
-
-        Injector.inject(container, this);
+        Injector.inject(this);
 
         printer.sayHello();
     }

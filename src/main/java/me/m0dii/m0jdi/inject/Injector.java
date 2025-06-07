@@ -22,13 +22,13 @@ public class Injector {
         this.container = container;
         this.autowireByType = autowireByType;
     }
-    
-    public static void inject(InjectorContainer container, Object target) {
+
+    public static void inject(Object target) {
         if (target == null) {
             return;
         }
-    
-        Injector injector = new Injector(container);
+
+        Injector injector = new Injector(new InjectorContainer());
         injector.injectDependencies(target);
     }
 
@@ -89,7 +89,7 @@ public class Injector {
         Class<?> currentClass = target.getClass();
         while (currentClass != null) {
             Field[] fields = currentClass.getDeclaredFields();
-            
+
             Arrays.stream(fields)
                     .filter(field -> field.isAnnotationPresent(Injected.class)
                             || (autowireByType && shouldAutowire(field.getType())))
@@ -105,7 +105,7 @@ public class Injector {
                             }
                         }
                     });
-            
+
             currentClass = currentClass.getSuperclass();
         }
     }
