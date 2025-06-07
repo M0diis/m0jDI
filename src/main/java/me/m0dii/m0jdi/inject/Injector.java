@@ -1,17 +1,35 @@
 package me.m0dii.m0jdi.inject;
 
+import me.m0dii.m0jdi.annotations.Component;
 import me.m0dii.m0jdi.annotations.Inject;
 import me.m0dii.m0jdi.annotations.Injected;
+import me.m0dii.m0jdi.annotations.Singleton;
 import me.m0dii.m0jdi.exception.InjectionException;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
+import java.util.Arrays;
 
 public class Injector {
     private final InjectorContainer container;
+    private final boolean autowireByType;
 
     public Injector(InjectorContainer container) {
+        this(container, true); // Default to autowiring by type
+    }
+
+    public Injector(InjectorContainer container, boolean autowireByType) {
         this.container = container;
+        this.autowireByType = autowireByType;
+    }
+    
+    public static void inject(InjectorContainer container, Object target) {
+        if (target == null) {
+            return;
+        }
+    
+        Injector injector = new Injector(container);
+        injector.injectDependencies(target);
     }
 
     /**
@@ -32,10 +50,9 @@ public class Injector {
         for (Constructor<?> constructor : clazz.getDeclaredConstructors()) {
             if (constructor.isAnnotationPresent(Inject.class)) {
                 Class<?>[] parameterTypes = constructor.getParameterTypes();
-                Object[] dependencies = new Object[parameterTypes.length];
-                for (int i = 0; i < parameterTypes.length; i++) {
-                    dependencies[i] = container.resolve(parameterTypes[i]);
-                }
+                Object[] dependencies = Arrays.stream(parameterTypes)
+                        .map(container::resolve)
+                        .toArray();
 
                 try {
                     constructor.setAccessible(true);
@@ -72,20 +89,30 @@ public class Injector {
         Class<?> currentClass = target.getClass();
         while (currentClass != null) {
             Field[] fields = currentClass.getDeclaredFields();
-            for (Field field : fields) {
-                if (field.isAnnotationPresent(Injected.class)) {
-                    Object dependency = container.resolve(field.getType());
-                    if (dependency != null) {
-                        field.setAccessible(true);
-                        try {
-                            field.set(target, dependency);
-                        } catch (IllegalAccessException e) {
-                            throw new InjectionException("Failed to inject dependency");
+            
+            Arrays.stream(fields)
+                    .filter(field -> field.isAnnotationPresent(Injected.class)
+                            || (autowireByType && shouldAutowire(field.getType())))
+                    .forEach(field -> {
+                        Object dependency = container.resolve(field.getType());
+                        if (dependency != null) {
+                            injectDependencies(dependency);
+                            field.setAccessible(true);
+                            try {
+                                field.set(target, dependency);
+                            } catch (IllegalAccessException e) {
+                                throw new InjectionException("Failed to inject dependency into " + field.getName());
+                            }
                         }
-                    }
-                }
-            }
+                    });
+            
             currentClass = currentClass.getSuperclass();
         }
+    }
+
+    private boolean shouldAutowire(Class<?> type) {
+        return type.isAnnotationPresent(Component.class) ||
+                type.isAnnotationPresent(Singleton.class) ||
+                (type.isInterface() && container.hasImplementation(type));
     }
 }
