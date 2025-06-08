@@ -4,6 +4,7 @@ import me.m0dii.m0jdi.annotations.Component;
 import me.m0dii.m0jdi.annotations.Inject;
 import me.m0dii.m0jdi.annotations.Singleton;
 import me.m0dii.m0jdi.exception.InjectionException;
+import me.m0dii.m0jdi.exception.MissingAnnotationException;
 
 import java.io.File;
 import java.io.IOException;
@@ -15,15 +16,16 @@ public class InjectorContainer {
     private final Map<Class<?>, Class<?>> componentImplementations = new HashMap<>();
 
     /**
-     * Registers a class as a singleton.
+     * Registers a class as a singleton or component.
      * If the class is marked with the {@link Singleton} annotation, it initializes
-     * an instance of the class and stores it for future retrieval.
+     * and stores an instance of the class for future use.
+     * If the class is marked with the {@link Component} annotation, it is registered as a component without being stored.
      *
-     * @param clazz The class to be registered as a singleton.
+     * @param clazz The class to be registered as a singleton or component.
      * @param <T> The type of the class being registered.
-     * @throws InjectionException If the singleton instance creation fails.
+     * @throws InjectionException If the instance creation for a singleton fails.
      */
-    public <T> void register(Class<T> clazz) {
+    public <T> void registerSingleton(Class<T> clazz) {
         if (clazz.isAnnotationPresent(Singleton.class)) {
             try {
                 var constructor = clazz.getDeclaredConstructor();
@@ -31,6 +33,10 @@ public class InjectorContainer {
                 singletonInstances.put(clazz, constructor.newInstance());
             } catch (Exception e) {
                 throw new InjectionException("Failed to create singleton instance for " + clazz.getName());
+            }
+        } else if (clazz.isAnnotationPresent(Component.class)) {
+            for (Class<?> iface : clazz.getInterfaces()) {
+                componentImplementations.put(iface, clazz);
             }
         } else {
             System.out.println("Warning: Trying to register non-singleton class: " + clazz.getSimpleName());
@@ -41,18 +47,20 @@ public class InjectorContainer {
      * Resolves and returns an instance of the specified class.
      * <ul>
      *     <li>If the class is annotated with {@link Singleton} and already registered, the existing instance is returned.</li>
-     *     <li>If the class is annotated with {@link Singleton} but not registered, a new instance is created and registered.</li>
-     *     <li>If the class is not annotated with {@link Singleton}, a new instance is always created.</li>
+     *     <li>If the class is annotated with {@link Singleton} but not registered, a new instance is created, registered, and then returned.</li>
+     *     <li>If the class is annotated with {@link Component} but not {@link Singleton}, a new instance is always created and returned.</li>
+     *     <li>If the class is an interface and an implementation is registered, resolves and returns its implementation.</li>
      * </ul>
      *
      * @param clazz The class to resolve an instance for.
      * @param <T> The type of the class being resolved.
      * @return The resolved instance of the specified class.
-     * @throws InjectionException If instance creation fails or the class does not have a no-argument constructor.
+     * @throws MissingAnnotationException If the class is not annotated with {@link Component} or {@link Singleton}.
+     * @throws InjectionException If instance creation fails or the class does not have a valid constructor.
      */
     public <T> T resolve(Class<T> clazz) {
         if (!clazz.isAnnotationPresent(Component.class) && !clazz.isAnnotationPresent(Singleton.class)) {
-            throw new InjectionException("Class " + clazz.getName() + " is not annotated with @Component or @Singleton.");
+            throw new MissingAnnotationException("Class " + clazz.getName() + " is not annotated with @Component or @Singleton.");
         }
 
         if (clazz.isInterface() && componentImplementations.containsKey(clazz)) {
@@ -140,7 +148,7 @@ public class InjectorContainer {
                 if (clazz.isAnnotationPresent(Component.class) || clazz.isAnnotationPresent(Singleton.class)) {
 
                     // Register for concrete classes
-                    register(clazz);
+                    registerSingleton(clazz);
 
                     // Also register the component for each interface it implements
                     for (Class<?> iface : clazz.getInterfaces()) {

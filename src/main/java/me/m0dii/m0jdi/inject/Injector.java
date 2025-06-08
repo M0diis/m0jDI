@@ -1,9 +1,7 @@
 package me.m0dii.m0jdi.inject;
 
-import me.m0dii.m0jdi.annotations.Component;
 import me.m0dii.m0jdi.annotations.Inject;
 import me.m0dii.m0jdi.annotations.Injected;
-import me.m0dii.m0jdi.annotations.Singleton;
 import me.m0dii.m0jdi.exception.InjectionException;
 
 import java.lang.reflect.Constructor;
@@ -12,15 +10,9 @@ import java.util.Arrays;
 
 public class Injector {
     private final InjectorContainer container;
-    private final boolean autowireByType;
 
     public Injector(InjectorContainer container) {
-        this(container, true); // Default to autowiring by type
-    }
-
-    public Injector(InjectorContainer container, boolean autowireByType) {
         this.container = container;
-        this.autowireByType = autowireByType;
     }
 
     public static void inject(Object... targets) {
@@ -30,7 +22,7 @@ public class Injector {
 
         Injector injector = new Injector(new InjectorContainer());
 
-        for(Object target : targets) {
+        for (Object target : targets) {
             injector.injectDependencies(target);
         }
     }
@@ -98,8 +90,7 @@ public class Injector {
             Field[] fields = currentClass.getDeclaredFields();
 
             Arrays.stream(fields)
-                    .filter(field -> field.isAnnotationPresent(Injected.class)
-                            || (autowireByType && shouldAutowire(field.getType())))
+                    .filter(field -> field.isAnnotationPresent(Injected.class))
                     .forEach(field -> {
                         Object dependency = container.resolve(field.getType());
                         if (dependency != null) {
@@ -115,11 +106,5 @@ public class Injector {
 
             currentClass = currentClass.getSuperclass();
         }
-    }
-
-    private boolean shouldAutowire(Class<?> type) {
-        return type.isAnnotationPresent(Component.class) ||
-                type.isAnnotationPresent(Singleton.class) ||
-                (type.isInterface() && container.hasImplementation(type));
     }
 }

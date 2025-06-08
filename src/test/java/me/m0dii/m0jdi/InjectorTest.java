@@ -17,7 +17,7 @@ class InjectorTest {
     @Test
     void testSingletonRegistrationAndReuse() {
         InjectorContainer container = new InjectorContainer();
-        container.register(SingletonService.class);
+        container.registerSingleton(SingletonService.class);
 
         SingletonService service1 = container.resolve(SingletonService.class);
         SingletonService service2 = container.resolve(SingletonService.class);
@@ -105,7 +105,7 @@ class InjectorTest {
     @Test
     void testCreateInstanceWithInjectConstructor() {
         InjectorContainer container = new InjectorContainer();
-        container.register(DependencyA.class);
+        container.registerSingleton(DependencyA.class);
 
         Injector injector = new Injector(container);
         ServiceWithInjectConstructor service = injector.createInstance(ServiceWithInjectConstructor.class);
