@@ -51,60 +51,68 @@ public class InjectorContainer {
      * @throws InjectionException If instance creation fails or the class does not have a no-argument constructor.
      */
     public <T> T resolve(Class<T> clazz) {
+        if (!clazz.isAnnotationPresent(Component.class) && !clazz.isAnnotationPresent(Singleton.class)) {
+            throw new InjectionException("Class " + clazz.getName() + " is not annotated with @Component or @Singleton.");
+        }
+
         if (clazz.isInterface() && componentImplementations.containsKey(clazz)) {
             Class<?> implClass = componentImplementations.get(clazz);
             return clazz.cast(resolve(implClass));
         }
 
-        // Check if it's a singleton
         if (clazz.isAnnotationPresent(Singleton.class)) {
-            // If already registered, return existing instance
             if (singletonInstances.containsKey(clazz)) {
                 return clazz.cast(singletonInstances.get(clazz));
             }
 
-            // If not registered, create and register it
-            try {
-                for (var constructor : clazz.getDeclaredConstructors()) {
-                    if (constructor.isAnnotationPresent(Inject.class)) {
-                        constructor.setAccessible(true);
-                        Object[] params = Arrays.stream(constructor.getParameterTypes())
-                                .map(this::resolve)
-                                .toArray();
-                        T instance = (T) constructor.newInstance(params);
-                        singletonInstances.put(clazz, instance);
-                        return instance;
-                    }
-                }
-                var defaultConstructor = clazz.getDeclaredConstructor();
-                defaultConstructor.setAccessible(true);
-                T instance = defaultConstructor.newInstance();
-                singletonInstances.put(clazz, instance);
-                return instance;
-            } catch (Exception e) {
-                throw new InjectionException("Failed to create singleton instance for " + clazz.getName());
-            }
+            return resolveSingleton(clazz);
         } else {
-            // Not a singleton - always create new instance
-            try {
-                for (var constructor : clazz.getDeclaredConstructors()) {
-                    if (constructor.isAnnotationPresent(Inject.class)) {
-                        constructor.setAccessible(true);
-                        Object[] params = Arrays.stream(constructor.getParameterTypes())
-                                .map(this::resolve)
-                                .toArray();
-                        return (T) constructor.newInstance(params);
-                    }
+            return resolveDependency(clazz);
+        }
+    }
+
+    private <T> T resolveDependency(Class<T> clazz) {
+        try {
+            for (var constructor : clazz.getDeclaredConstructors()) {
+                if (constructor.isAnnotationPresent(Inject.class)) {
+                    constructor.setAccessible(true);
+                    Object[] params = Arrays.stream(constructor.getParameterTypes())
+                            .map(this::resolve)
+                            .toArray();
+                    return (T) constructor.newInstance(params);
                 }
-                var defaultConstructor = clazz.getDeclaredConstructor();
-                defaultConstructor.setAccessible(true);
-                return defaultConstructor.newInstance();
-            } catch (NoSuchMethodException e) {
-                throw new InjectionException("No default constructor found for " + clazz.getName() +
-                        ". Make sure the class has a public no-argument constructor or is a static nested class.");
-            } catch (Exception e) {
-                throw new InjectionException("Failed to create instance for " + clazz.getName());
             }
+            var defaultConstructor = clazz.getDeclaredConstructor();
+            defaultConstructor.setAccessible(true);
+            return defaultConstructor.newInstance();
+        } catch (NoSuchMethodException e) {
+            throw new InjectionException("No default constructor found for " + clazz.getName() +
+                    ". Make sure the class has a public no-argument constructor or is a static nested class.");
+        } catch (Exception e) {
+            throw new InjectionException("Failed to create instance for " + clazz.getName());
+        }
+    }
+
+    private <T> T resolveSingleton(Class<T> clazz) {
+        try {
+            for (var constructor : clazz.getDeclaredConstructors()) {
+                if (constructor.isAnnotationPresent(Inject.class)) {
+                    constructor.setAccessible(true);
+                    Object[] params = Arrays.stream(constructor.getParameterTypes())
+                            .map(this::resolve)
+                            .toArray();
+                    T instance = (T) constructor.newInstance(params);
+                    singletonInstances.put(clazz, instance);
+                    return instance;
+                }
+            }
+            var defaultConstructor = clazz.getDeclaredConstructor();
+            defaultConstructor.setAccessible(true);
+            T instance = defaultConstructor.newInstance();
+            singletonInstances.put(clazz, instance);
+            return instance;
+        } catch (Exception e) {
+            throw new InjectionException("Failed to create singleton instance for " + clazz.getName());
         }
     }
 

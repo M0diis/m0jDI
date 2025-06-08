@@ -3,6 +3,7 @@ package me.m0dii.m0jdi.example;
 import me.m0dii.m0jdi.annotations.Component;
 import me.m0dii.m0jdi.annotations.Inject;
 import me.m0dii.m0jdi.annotations.Injected;
+import me.m0dii.m0jdi.annotations.Singleton;
 import me.m0dii.m0jdi.inject.Injector;
 
 import java.util.Random;
@@ -11,12 +12,14 @@ public class ExampleComponentApp {
 
     public static final Random RANDOM = new Random();
 
+    @Singleton
     static class RandomStringService {
         public String getRandomString() {
             return "RandomString-" + RANDOM.nextInt(1000);
         }
     }
 
+    @Component
     static class StringProvider {
         private final RandomStringService randomStringService;
 

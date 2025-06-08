@@ -23,13 +23,20 @@ public class Injector {
         this.autowireByType = autowireByType;
     }
 
-    public static void inject(Object target) {
-        if (target == null) {
+    public static void inject(Object... targets) {
+        if (targets == null) {
             return;
         }
 
         Injector injector = new Injector(new InjectorContainer());
-        injector.injectDependencies(target);
+
+        for(Object target : targets) {
+            injector.injectDependencies(target);
+        }
+    }
+
+    public static <T> T create(Class<T> clazz) {
+        return new Injector(new InjectorContainer()).createInstance(clazz);
     }
 
     /**

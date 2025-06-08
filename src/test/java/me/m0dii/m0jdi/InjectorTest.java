@@ -3,64 +3,17 @@ package me.m0dii.m0jdi;
 import me.m0dii.m0jdi.annotations.Inject;
 import me.m0dii.m0jdi.annotations.Injected;
 import me.m0dii.m0jdi.annotations.Singleton;
+import me.m0dii.m0jdi.components.ClientWithNonSingleton;
+import me.m0dii.m0jdi.components.NonSingletonService;
 import me.m0dii.m0jdi.inject.Injector;
 import me.m0dii.m0jdi.inject.InjectorContainer;
+import me.m0dii.m0jdi.singletons.ClientWithSingleton;
+import me.m0dii.m0jdi.singletons.SingletonService;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 class InjectorTest {
-    @Singleton
-    static class SingletonService {
-        private boolean performed = false;
-
-        public void perform() {
-            performed = true;
-        }
-
-        public boolean hasPerformed() {
-            return performed;
-        }
-
-        public String getValue() {
-            return "singleton";
-        }
-    }
-
-    static class NonSingletonService {
-        private boolean executed = false;
-
-        public void execute() {
-            executed = true;
-        }
-
-        public boolean hasExecuted() {
-            return executed;
-        }
-
-        public String getValue() {
-            return "non-singleton";
-        }
-    }
-
-    static class ClientWithSingleton {
-        @Injected
-        private SingletonService singletonService;
-
-        public SingletonService getSingletonService() {
-            return singletonService;
-        }
-    }
-
-    static class ClientWithNonSingleton {
-        @Injected
-        private NonSingletonService nonSingletonService;
-
-        public NonSingletonService getNonSingletonService() {
-            return nonSingletonService;
-        }
-    }
-
     @Test
     void testSingletonRegistrationAndReuse() {
         InjectorContainer container = new InjectorContainer();
@@ -92,12 +45,8 @@ class InjectorTest {
 
     @Test
     void testInjectSingletonDependency() {
-        InjectorContainer container = new InjectorContainer();
-        container.register(SingletonService.class);
-
         ClientWithSingleton client = new ClientWithSingleton();
-        Injector injector = new Injector(container);
-        injector.injectDependencies(client);
+        Injector.inject(client);
 
         assertNotNull(client.getSingletonService());
         client.getSingletonService().perform();
@@ -106,15 +55,31 @@ class InjectorTest {
 
     @Test
     void testInjectNonSingletonDependency() {
-        InjectorContainer container = new InjectorContainer();
-
         ClientWithNonSingleton client = new ClientWithNonSingleton();
-        Injector injector = new Injector(container);
-        injector.injectDependencies(client);
+
+        Injector.inject(client);
 
         assertNotNull(client.getNonSingletonService());
         client.getNonSingletonService().execute();
         assertTrue(client.getNonSingletonService().hasExecuted());
+    }
+
+    @Test
+    void testInjectNonSingletonDependencyShouldDiffer() {
+        ClientWithNonSingleton client1 = new ClientWithNonSingleton();
+        ClientWithNonSingleton client2 = new ClientWithNonSingleton();
+
+        Injector.inject(client1, client2);
+
+        assertNotNull(client1.getNonSingletonService());
+        client1.getNonSingletonService().execute();
+        assertTrue(client1.getNonSingletonService().hasExecuted());
+
+        assertNotNull(client2.getNonSingletonService());
+        client2.getNonSingletonService().execute();
+        assertTrue(client2.getNonSingletonService().hasExecuted());
+
+        assertNotEquals(client1.hashCode(), client2.hashCode());
     }
 
     @Singleton
@@ -170,12 +135,8 @@ class InjectorTest {
 
     @Test
     void testInheritedFieldInjection() {
-        InjectorContainer container = new InjectorContainer();
-        container.register(BaseService.class);
-
         DerivedClient client = new DerivedClient();
-        Injector injector = new Injector(container);
-        injector.injectDependencies(client);
+        Injector.inject(client);
 
         assertNotNull(client.getBaseService());
         assertEquals("base", client.getBaseService().getBaseValue());
@@ -214,14 +175,8 @@ class InjectorTest {
 
     @Test
     void testMultipleDependencyInjection() {
-
-        InjectorContainer container = new InjectorContainer();
-        container.register(ServiceA.class);
-        container.register(ServiceB.class);
-
         ComplexClient client = new ComplexClient();
-        Injector injector = new Injector(container);
-        injector.injectDependencies(client);
+        Injector.inject(client);
 
         assertNotNull(client.getServiceA());
         assertNotNull(client.getServiceB());
@@ -261,14 +216,8 @@ class InjectorTest {
 
     @Test
     void testNestedDependencyInjection() {
-        InjectorContainer container = new InjectorContainer();
-        container.register(InnerDependency.class);
-        container.register(OuterDependency.class);
-
         Client client = new Client();
-        Injector injector = new Injector(container);
-        injector.injectDependencies(client);
-        injector.injectDependencies(client.getOuterDependency()); // Inject into nested dependency
+        Injector.inject(client);
 
         assertNotNull(client.getOuterDependency());
         assertNotNull(client.getOuterDependency().getInnerDependency());
@@ -291,28 +240,23 @@ class InjectorTest {
     }
 
     static class ComplexService {
-        private final ServiceC serviceA;
-        private final ServiceD serviceB;
+        private final ServiceC serviceC;
+        private final ServiceD serviceD;
 
         @Inject
-        public ComplexService(ServiceC serviceA, ServiceD serviceB) {
-            this.serviceA = serviceA;
-            this.serviceB = serviceB;
+        public ComplexService(ServiceC serviceC, ServiceD serviceD) {
+            this.serviceC = serviceC;
+            this.serviceD = serviceD;
         }
 
         public String getCombinedValue() {
-            return serviceA.getValue() + serviceB.getValue();
+            return serviceC.getValue() + serviceD.getValue();
         }
     }
 
     @Test
     void testCreateInstanceWithMultipleParameters() {
-        InjectorContainer container = new InjectorContainer();
-        container.register(ServiceC.class);
-        container.register(ServiceD.class);
-
-        Injector injector = new Injector(container);
-        ComplexService service = injector.createInstance(ComplexService.class);
+        ComplexService service = Injector.create(ComplexService.class);
 
         assertNotNull(service);
         assertEquals("CD", service.getCombinedValue());
