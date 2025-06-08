@@ -1,10 +1,14 @@
 package me.m0dii.m0jdi;
 
+import me.m0dii.m0jdi.annotations.Component;
 import me.m0dii.m0jdi.annotations.Inject;
 import me.m0dii.m0jdi.annotations.Injected;
 import me.m0dii.m0jdi.annotations.Singleton;
 import me.m0dii.m0jdi.components.ClientWithNonSingleton;
 import me.m0dii.m0jdi.components.NonSingletonService;
+import me.m0dii.m0jdi.exception.MissingAnnotationException;
+import me.m0dii.m0jdi.exception.MissingConstructorException;
+import me.m0dii.m0jdi.exception.MultipleConstructorException;
 import me.m0dii.m0jdi.inject.Injector;
 import me.m0dii.m0jdi.inject.InjectorContainer;
 import me.m0dii.m0jdi.singletons.ClientWithSingleton;
@@ -260,5 +264,68 @@ class InjectorTest {
 
         assertNotNull(service);
         assertEquals("CD", service.getCombinedValue());
+    }
+
+    @Component
+    static class NoConstructorClass {
+        private NoConstructorClass() {
+        }
+    }
+
+    @Test
+    void shouldThrowExceptionIfNoConstructorFound() {
+        InjectorContainer container = new InjectorContainer();
+        container.registerSingleton(NoConstructorClass.class);
+
+        Exception exception = assertThrows(MissingConstructorException.class, () -> {
+            container.resolve(NoConstructorClass.class);
+        });
+
+        String expectedMessage = "No public no-argument constructor found for me.m0dii.m0jdi.InjectorTest$NoConstructorClass. " +
+                "Make sure the class has a public no-argument constructor or is a static nested class.";
+
+        assertEquals(exception.getMessage(), expectedMessage);
+    }
+
+    static class NoAnnotationClass {
+
+    }
+
+    @Test
+    void shouldThrowExceptionIfNoAnnotationFound() {
+        InjectorContainer container = new InjectorContainer();
+        container.registerSingleton(NoConstructorClass.class);
+
+        Exception exception = assertThrows(MissingAnnotationException.class, () -> {
+            container.resolve(NoAnnotationClass.class);
+        });
+
+        String expectedMessage = "Class me.m0dii.m0jdi.InjectorTest$NoAnnotationClass is not annotated with @Component or @Singleton.";
+        assertEquals(exception.getMessage(), expectedMessage);
+    }
+
+    @Component
+    static class MultipleConstructorsClass {
+        @Inject
+        public MultipleConstructorsClass(String value) {
+        }
+
+        @Inject
+        public MultipleConstructorsClass(int value) {
+        }
+    }
+
+    @Test
+    void shouldThrowExceptionIfMultipleConstructorsFound() {
+        InjectorContainer container = new InjectorContainer();
+        container.registerSingleton(MultipleConstructorsClass.class);
+
+        Exception exception = assertThrows(MultipleConstructorException.class, () -> {
+            container.resolve(MultipleConstructorsClass.class);
+        });
+
+        String expectedMessage = "Multiple constructors annotated with @Inject found for me.m0dii.m0jdi.InjectorTest$MultipleConstructorsClass. " +
+                "Only one constructor can be annotated with @Inject.";
+        assertEquals(exception.getMessage(), expectedMessage);
     }
 }

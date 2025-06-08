@@ -5,6 +5,8 @@ import me.m0dii.m0jdi.annotations.Inject;
 import me.m0dii.m0jdi.annotations.Singleton;
 import me.m0dii.m0jdi.exception.InjectionException;
 import me.m0dii.m0jdi.exception.MissingAnnotationException;
+import me.m0dii.m0jdi.exception.MissingConstructorException;
+import me.m0dii.m0jdi.exception.MultipleConstructorException;
 
 import java.io.File;
 import java.io.IOException;
@@ -81,18 +83,39 @@ public class InjectorContainer {
 
     private <T> T resolveDependency(Class<T> clazz) {
         try {
-            for (var constructor : clazz.getDeclaredConstructors()) {
-                if (constructor.isAnnotationPresent(Inject.class)) {
-                    constructor.setAccessible(true);
-                    Object[] params = Arrays.stream(constructor.getParameterTypes())
-                            .map(this::resolve)
-                            .toArray();
-                    return (T) constructor.newInstance(params);
+            var annotatedConstructors = Arrays.stream(clazz.getDeclaredConstructors())
+                    .filter(constructor -> constructor.isAnnotationPresent(Inject.class))
+                    .toList();
+
+            if (annotatedConstructors.isEmpty()) {
+                var defaultConstructor = clazz.getDeclaredConstructor();
+
+                if (defaultConstructor.getModifiers() != java.lang.reflect.Modifier.PUBLIC) {
+                    throw new MissingConstructorException("No public no-argument constructor found for " + clazz.getName() +
+                            ". Make sure the class has a public no-argument constructor or is a static nested class.");
                 }
+
+                defaultConstructor.setAccessible(true);
+                T instance = defaultConstructor.newInstance();
+                singletonInstances.put(clazz, instance);
+                return instance;
             }
-            var defaultConstructor = clazz.getDeclaredConstructor();
-            defaultConstructor.setAccessible(true);
-            return defaultConstructor.newInstance();
+
+            if (annotatedConstructors.size() > 1) {
+                throw new MultipleConstructorException("Multiple constructors annotated with @Inject found for " + clazz.getName() +
+                        ". Only one constructor can be annotated with @Inject.");
+            }
+
+            var constructor = annotatedConstructors.getFirst();
+
+            constructor.setAccessible(true);
+            Object[] params = Arrays.stream(constructor.getParameterTypes())
+                    .map(this::resolve)
+                    .toArray();
+            return (T) constructor.newInstance(params);
+        }
+        catch (MissingConstructorException | MultipleConstructorException e) {
+            throw e;
         } catch (NoSuchMethodException e) {
             throw new InjectionException("No default constructor found for " + clazz.getName() +
                     ". Make sure the class has a public no-argument constructor or is a static nested class.");
@@ -103,20 +126,24 @@ public class InjectorContainer {
 
     private <T> T resolveSingleton(Class<T> clazz) {
         try {
-            for (var constructor : clazz.getDeclaredConstructors()) {
-                if (constructor.isAnnotationPresent(Inject.class)) {
-                    constructor.setAccessible(true);
-                    Object[] params = Arrays.stream(constructor.getParameterTypes())
-                            .map(this::resolve)
-                            .toArray();
-                    T instance = (T) constructor.newInstance(params);
-                    singletonInstances.put(clazz, instance);
-                    return instance;
-                }
+            var annotatedConstructors = Arrays.stream(clazz.getDeclaredConstructors())
+                    .filter(constructor -> constructor.isAnnotationPresent(Inject.class))
+                    .toList();
+
+            if (annotatedConstructors.isEmpty()) {
+                var defaultConstructor = clazz.getDeclaredConstructor();
+                defaultConstructor.setAccessible(true);
+                T instance = defaultConstructor.newInstance();
+                singletonInstances.put(clazz, instance);
+                return instance;
             }
-            var defaultConstructor = clazz.getDeclaredConstructor();
-            defaultConstructor.setAccessible(true);
-            T instance = defaultConstructor.newInstance();
+
+            var annotatedConstructor = annotatedConstructors.getFirst();
+            annotatedConstructor.setAccessible(true);
+            Object[] params = Arrays.stream(annotatedConstructor.getParameterTypes())
+                    .map(this::resolve)
+                    .toArray();
+            T instance = (T) annotatedConstructor.newInstance(params);
             singletonInstances.put(clazz, instance);
             return instance;
         } catch (Exception e) {

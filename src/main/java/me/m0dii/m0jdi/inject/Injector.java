@@ -3,8 +3,9 @@ package me.m0dii.m0jdi.inject;
 import me.m0dii.m0jdi.annotations.Inject;
 import me.m0dii.m0jdi.annotations.Injected;
 import me.m0dii.m0jdi.exception.InjectionException;
+import me.m0dii.m0jdi.exception.MissingConstructorException;
+import me.m0dii.m0jdi.exception.MultipleConstructorException;
 
-import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.util.Arrays;
 
@@ -46,26 +47,34 @@ public class Injector {
      */
     @SuppressWarnings("unchecked")
     public <T> T createInstance(Class<T> clazz) {
-        for (Constructor<?> constructor : clazz.getDeclaredConstructors()) {
-            if (constructor.isAnnotationPresent(Inject.class)) {
-                Class<?>[] parameterTypes = constructor.getParameterTypes();
-                Object[] dependencies = Arrays.stream(parameterTypes)
-                        .map(container::resolve)
-                        .toArray();
+        var annotatedConstructors = Arrays.stream(clazz.getDeclaredConstructors())
+                .filter(constructor -> constructor.isAnnotationPresent(Inject.class))
+                .toList();
 
-                try {
-                    constructor.setAccessible(true);
-                    return (T) constructor.newInstance(dependencies);
-                } catch (Exception e) {
-                    throw new InjectionException("Failed to instantiate " + clazz + " with @Inject constructor");
-                }
+        if (annotatedConstructors.isEmpty()) {
+            try {
+                return clazz.getDeclaredConstructor().newInstance();
+            } catch (Exception e) {
+                throw new MissingConstructorException("Failed to instantiate " + clazz + ". No @Inject or default constructor found.");
             }
         }
 
+        if (annotatedConstructors.size() > 1) {
+            throw new MultipleConstructorException("Multiple @Inject constructors found for " + clazz + ". Only one is allowed.");
+        }
+
+        var constructor = annotatedConstructors.getFirst();
+
+        Class<?>[] parameterTypes = constructor.getParameterTypes();
+        Object[] dependencies = Arrays.stream(parameterTypes)
+                .map(container::resolve)
+                .toArray();
+
         try {
-            return clazz.getDeclaredConstructor().newInstance();
+            constructor.setAccessible(true);
+            return (T) constructor.newInstance(dependencies);
         } catch (Exception e) {
-            throw new InjectionException("Failed to instantiate " + clazz + ". No @Inject constructor or default constructor found.");
+            throw new InjectionException("Failed to instantiate " + clazz + " with @Inject constructor");
         }
     }
 
