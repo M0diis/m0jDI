@@ -2,7 +2,7 @@ plugins {
     id("java")
 }
 
-group = "me.modkzl"
+group = "me.m0dii"
 version = "1.0.0"
 
 repositories {
