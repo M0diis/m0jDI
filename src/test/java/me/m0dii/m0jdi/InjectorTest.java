@@ -87,36 +87,36 @@ class InjectorTest {
     }
 
     @Singleton
-    static class DependencyA {
+    static class ServiceWithInjectConstructorDependency {
         public String getValue() {
-            return "A";
+            return "Inject Constructor Dependency A";
         }
     }
 
     static class ServiceWithInjectConstructor {
-        private final DependencyA dependencyA;
+        private final ServiceWithInjectConstructorDependency serviceWithInjectConstructorDependency;
 
         @Inject
-        public ServiceWithInjectConstructor(DependencyA dependencyA) {
-            this.dependencyA = dependencyA;
+        public ServiceWithInjectConstructor(ServiceWithInjectConstructorDependency serviceWithInjectConstructorDependency) {
+            this.serviceWithInjectConstructorDependency = serviceWithInjectConstructorDependency;
         }
 
-        public DependencyA getDependencyA() {
-            return dependencyA;
+        public ServiceWithInjectConstructorDependency getDependencyA() {
+            return serviceWithInjectConstructorDependency;
         }
     }
 
     @Test
     void testCreateInstanceWithInjectConstructor() {
         InjectorContainer container = new InjectorContainer();
-        container.registerSingleton(DependencyA.class);
+        container.registerSingleton(ServiceWithInjectConstructorDependency.class);
 
         Injector injector = new Injector(container);
         ServiceWithInjectConstructor service = injector.createInstance(ServiceWithInjectConstructor.class);
 
         assertNotNull(service);
         assertNotNull(service.getDependencyA());
-        assertEquals("A", service.getDependencyA().getValue());
+        assertEquals("Inject Constructor Dependency A", service.getDependencyA().getValue());
     }
 
     @Singleton
@@ -147,14 +147,14 @@ class InjectorTest {
     }
 
     @Singleton
-    static class ServiceA {
+    static class ComplexClientSingletonA {
         public String getValue() {
             return "A";
         }
     }
 
     @Singleton
-    static class ServiceB {
+    static class ComplexClientSingletonB {
         public String getValue() {
             return "B";
         }
@@ -162,20 +162,19 @@ class InjectorTest {
 
     static class ComplexClient {
         @Injected
-        private ServiceA serviceA;
+        private ComplexClientSingletonA complexClientSingletonA;
 
         @Injected
-        private ServiceB serviceB;
+        private ComplexClientSingletonB complexClientSingletonB;
 
-        public ServiceA getServiceA() {
-            return serviceA;
+        public ComplexClientSingletonA getServiceA() {
+            return complexClientSingletonA;
         }
 
-        public ServiceB getServiceB() {
-            return serviceB;
+        public ComplexClientSingletonB getServiceB() {
+            return complexClientSingletonB;
         }
     }
-
 
     @Test
     void testMultipleDependencyInjection() {
@@ -189,19 +188,19 @@ class InjectorTest {
     }
 
     @Singleton
-    static class InnerDependency {
+    static class ClientInnerSingletonDependency {
         public String getValue() {
             return "inner";
         }
     }
 
     @Singleton
-    static class OuterDependency {
+    static class ClientOuterSingletonDependency {
         @Injected
-        private InnerDependency innerDependency;
+        private ClientInnerSingletonDependency clientInnerSingletonDependency;
 
-        public InnerDependency getInnerDependency() {
-            return innerDependency;
+        public ClientInnerSingletonDependency getInnerDependency() {
+            return clientInnerSingletonDependency;
         }
 
         public String getValue() {
@@ -211,10 +210,10 @@ class InjectorTest {
 
     static class Client {
         @Injected
-        private OuterDependency outerDependency;
+        private ClientOuterSingletonDependency clientOuterSingletonDependency;
 
-        public OuterDependency getOuterDependency() {
-            return outerDependency;
+        public ClientOuterSingletonDependency getOuterDependency() {
+            return clientOuterSingletonDependency;
         }
     }
 
@@ -230,31 +229,31 @@ class InjectorTest {
     }
 
     @Singleton
-    static class ServiceC {
+    static class ComplexServiceSingletonC {
         public String getValue() {
             return "C";
         }
     }
 
     @Singleton
-    static class ServiceD {
+    static class ComplexServiceSingletonD {
         public String getValue() {
             return "D";
         }
     }
 
     static class ComplexService {
-        private final ServiceC serviceC;
-        private final ServiceD serviceD;
+        private final ComplexServiceSingletonC complexServiceSingletonC;
+        private final ComplexServiceSingletonD complexServiceSingletonD;
 
         @Inject
-        public ComplexService(ServiceC serviceC, ServiceD serviceD) {
-            this.serviceC = serviceC;
-            this.serviceD = serviceD;
+        public ComplexService(ComplexServiceSingletonC complexServiceSingletonC, ComplexServiceSingletonD complexServiceSingletonD) {
+            this.complexServiceSingletonC = complexServiceSingletonC;
+            this.complexServiceSingletonD = complexServiceSingletonD;
         }
 
         public String getCombinedValue() {
-            return serviceC.getValue() + serviceD.getValue();
+            return complexServiceSingletonC.getValue() + complexServiceSingletonD.getValue();
         }
     }
 
@@ -284,7 +283,7 @@ class InjectorTest {
         String expectedMessage = "No public no-argument constructor found for me.m0dii.m0jdi.InjectorTest$NoConstructorClass. " +
                 "Make sure the class has a public no-argument constructor or is a static nested class.";
 
-        assertEquals(exception.getMessage(), expectedMessage);
+        assertEquals(expectedMessage, exception.getMessage());
     }
 
     static class NoAnnotationClass {
@@ -301,7 +300,7 @@ class InjectorTest {
         });
 
         String expectedMessage = "Class me.m0dii.m0jdi.InjectorTest$NoAnnotationClass is not annotated with @Component or @Singleton.";
-        assertEquals(exception.getMessage(), expectedMessage);
+        assertEquals(expectedMessage, exception.getMessage());
     }
 
     @Component
@@ -326,6 +325,6 @@ class InjectorTest {
 
         String expectedMessage = "Multiple constructors annotated with @Inject found for me.m0dii.m0jdi.InjectorTest$MultipleConstructorsClass. " +
                 "Only one constructor can be annotated with @Inject.";
-        assertEquals(exception.getMessage(), expectedMessage);
+        assertEquals(expectedMessage, exception.getMessage());
     }
 }
